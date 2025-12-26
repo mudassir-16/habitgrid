@@ -1,5 +1,7 @@
 # Firebase Configuration (SENSITIVE)
-firebase-config.js
+# Note: Firebase API keys are safe to expose - security is in Firestore rules
+# Uncommenting for Vercel deployment
+# firebase-config.js
 firebase-config.local.js
 
 # Environment files
