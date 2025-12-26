@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HabitGrid - Build Consistency. Track Progress. Improve Daily.</title>
+    <meta name="description"
+        content="A minimal, visual habit tracker with monthly grid and insightful analytics to help you build consistency and track your daily progress.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Chart.js for dynamic charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Auth Check Script -->
+    <script>
+        // Check if user is logged in (Firebase will handle this after initialization)
+        // Temporary check for localStorage session during migration
+        const session = localStorage.getItem('habitgrid_session');
+        if (!session) {
+            // Will be replaced by Firebase auth state listener
+            // window.location.href = 'auth.html';
+        }
+    </script>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="brand">
+                    <div class="logo">
+                        <span style="font-size: 2rem;">📊</span>
+                    </div>
+                    <div class="brand-text">
+                        <h1>HabitGrid</h1>
+                    </div>
+                </div>
+
+                <div class="header-controls">
+                    <div class="month-selector">
+                        <button id="prevMonth" class="month-nav-btn" aria-label="Previous month">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                        <div class="current-month" id="currentMonth">January 2025</div>
+                        <button id="nextMonth" class="month-nav-btn" aria-label="Next month">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <button id="resetBtn" class="reset-btn">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M2 9a7 7 0 0 1 11.95-4.95M16 9A7 7 0 0 1 4.05 13.95M2 4v4h4m8 6v-4h4"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        Reset Month
+                    </button>
+
+                    <div class="user-menu">
+                        <span class="user-name" id="userName">User</span>
+                        <button id="logoutBtn" class="logout-btn" title="Logout">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                <path d="M6 16H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3M12 12l4-4-4-4M16 8H6"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Habit Grid Section -->
+            <section class="grid-section">
+                <div class="section-header">
+                    <h2>Your Habits</h2>
+                    <p class="section-subtitle">Track your daily progress with a simple check</p>
+                </div>
+
+                <div class="habit-grid-wrapper">
+                    <div class="habit-grid" id="habitGrid">
+                        <!-- Grid will be generated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Analytics Toggle Button -->
+                <div style="text-align: center; margin-top: 2rem;">
+                    <button id="toggleAnalytics" class="analytics-toggle-btn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M3 17V8m7 9V3m7 14v-5" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                        </svg>
+                        View Analytics & Charts
+                    </button>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section class="analytics-section hidden" id="analyticsSection">
+                <div class="section-header">
+                    <h2>Analytics & Insights</h2>
+                    <p class="section-subtitle">Visualize your consistency and progress</p>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3 class="card-title">Habit Completion - Bar Chart</h3>
+                        <canvas id="barChart"></canvas>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3 class="card-title">Overall Progress - Pie Chart</h3>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Monthly Summary Card -->
+                <div class="summary-card">
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <div class="summary-icon success">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <div class="summary-content">
+                                <div class="summary-value" id="totalCompleted">0</div>
+                                <div class="summary-label">Days Completed</div>
+                            </div>
+                        </div>
+
+                        <div class="summary-item">
+                            <div class="summary-icon info">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor"
+                                        stroke-width="2" />
+                                    <path d="M9 9h6v6H9V9z" fill="currentColor" />
+                                </svg>
+                            </div>
+                            <div class="summary-content">
+                                <div class="summary-value" id="totalHabits">0</div>
+                                <div class="summary-label">Active Habits</div>
+                            </div>
+                        </div>
+
+                        <div class="summary-item">
+                            <div class="summary-icon warning">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <div class="summary-content">
+                                <div class="summary-value" id="longestStreak">0</div>
+                                <div class="summary-label">Longest Streak</div>
+                            </div>
+                        </div>
+
+                        <div class="summary-item">
+                            <div class="summary-icon primary">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                                    <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <div class="summary-content">
+                                <div class="summary-value" id="completionRate">0%</div>
+                                <div class="summary-label">Completion Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overall Progress -->
+                <div class="analytics-card">
+                    <h3 class="card-title">Overall Progress</h3>
+                    <div class="progress-info">
+                        <span id="progressText">0 out of 0 habit actions completed</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="overallProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Habit Performance -->
+                <div class="analytics-card">
+                    <h3 class="card-title">Habit Performance</h3>
+                    <div class="habit-performance" id="habitPerformance">
+                        <!-- Performance bars will be generated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Best & Worst Performers -->
+                <div class="performance-cards">
+                    <div class="performance-card best">
+                        <div class="performance-header">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 2l2.5 5.5L18 8.5l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-1L10 2z"
+                                    fill="currentColor" />
+                            </svg>
+                            <h4>Most Consistent</h4>
+                        </div>
+                        <div class="performance-habit" id="bestHabit">-</div>
+                        <div class="performance-stat" id="bestHabitStat">-</div>
+                    </div>
+
+                    <div class="performance-card worst">
+                        <div class="performance-header">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" stroke="currentColor"
+                                    stroke-width="2" />
+                                <path d="M8 8h.01M12 8h.01M8 12h4" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            <h4>Needs Attention</h4>
+                        </div>
+                        <div class="performance-habit" id="worstHabit">-</div>
+                        <div class="performance-stat" id="worstHabitStat">-</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 HabitGrid. Built for consistency.</p>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div class="modal" id="habitModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Edit Habit</h3>
+                <button class="modal-close" id="closeModal" aria-label="Close modal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="habitName">Habit Name</label>
+                    <input type="text" id="habitName" maxlength="25" placeholder="e.g., Morning Exercise">
+                </div>
+                <div class="form-group">
+                    <label for="habitCategory">Category</label>
+                    <select id="habitCategory">
+                        <option value="health">Health</option>
+                        <option value="study">Study</option>
+                        <option value="work">Work</option>
+                        <option value="personal">Personal</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveHabitBtn">Save Habit</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="firebase-data.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

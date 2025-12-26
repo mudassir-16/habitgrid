@@ -1,0 +1,70 @@
+/* ============================================
+   FIREBASE CONFIGURATION - QUICK START
+   ============================================ */
+
+/*
+ * 🔥 STEP 1: Get Your Firebase Config
+ * 
+ * 1. Go to: https://console.firebase.google.com/
+ * 2. Create a new project or select existing
+ * 3. Click the Web icon (</>)
+ * 4. Copy the firebaseConfig object
+ */
+
+/*
+ * 🔥 STEP 2: Replace the Configuration Below
+ * 
+ * Replace the placeholder values with your actual
+ * Firebase project configuration
+ */
+
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY_HERE",
+    authDomain: "your-project-id.firebaseapp.com",
+    projectId: "your-project-id",
+    storageBucket: "your-project-id.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef1234567890"
+};
+
+/*
+ * 🔥 STEP 3: Enable Services in Firebase Console
+ * 
+ * ✅ Authentication:
+ *    - Go to: Build > Authentication
+ *    - Enable: Email/Password
+ * 
+ * ✅ Firestore Database:
+ *    - Go to: Build > Firestore Database
+ *    - Create database in test mode
+ * 
+ * ✅ Security Rules:
+ *    - Copy rules from FIREBASE_SETUP.md
+ *    - Paste in Firestore > Rules tab
+ *    - Publish
+ */
+
+/*
+ * 🔥 STEP 4: Test Your Setup
+ * 
+ * 1. Open index.html in browser
+ * 2. Open Console (F12)
+ * 3. Look for: "🔥 Firebase Connected"
+ * 4. Register a new user
+ * 5. Check Firebase Console for user data
+ */
+
+/*
+ * ⚠️ IMPORTANT NOTES:
+ * 
+ * - Your API key is safe to expose (it's public)
+ * - Security is handled by Firestore rules
+ * - Never commit sensitive data to git
+ * - Test mode expires after 30 days
+ * - Update security rules for production
+ */
+
+/*
+ * 📚 Full Setup Guide:
+ * See FIREBASE_SETUP.md for detailed instructions
+ */
