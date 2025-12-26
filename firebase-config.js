@@ -21,6 +21,15 @@ try {
     auth = firebase.auth();
     db = firebase.firestore();
 
+    // Enable offline persistence
+    db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+        if (err.code == 'failed-precondition') {
+            console.warn('Persistence failed: Multiple tabs open');
+        } else if (err.code == 'unimplemented') {
+            console.warn('Persistence not supported by browser');
+        }
+    });
+
     console.log('%c🔥 Firebase Connected', 'color: #FFA000; font-size: 16px; font-weight: bold;');
     console.log('%cFirebase initialized successfully', 'color: #4CAF50; font-size: 12px;');
 } catch (error) {

@@ -9,11 +9,24 @@ const SESSION_KEY = 'habitgrid_session';
 // ===================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for Firebase to initialize
-    setTimeout(() => {
+    // Initialize immediately
+    if (typeof firebase !== 'undefined' && firebase.auth) {
         checkFirebaseSession();
         attachAuthListeners();
-    }, 500);
+    } else {
+        // Fallback or retry if firebase takes a moment (happens with slow CDNs)
+        let retryCount = 0;
+        const retry = setInterval(() => {
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                clearInterval(retry);
+                checkFirebaseSession();
+                attachAuthListeners();
+            } else if (retryCount++ > 10) {
+                clearInterval(retry);
+                console.error('Firebase failed to load after 5 seconds');
+            }
+        }, 500);
+    }
 });
 
 // ===================================
@@ -26,15 +39,21 @@ function checkFirebaseSession() {
         firebase.auth().onAuthStateChanged((user) => {
             if (user) {
                 // User is signed in, redirect to main app
-                console.log('User already logged in:', user.email);
-                window.location.href = 'index.html';
+                console.log('User detected, redirecting to app...');
+                if (!window.location.href.includes('index.html')) {
+                    window.location.href = 'index.html';
+                }
             } else {
                 // No user signed in, stay on auth page
-                console.log('No user logged in');
+                console.log('User signed out');
+                // Ensure we are on auth.html if signed out
+                if (!window.location.href.includes('auth.html')) {
+                    window.location.href = 'auth.html';
+                }
             }
         });
     } else {
-        console.error('Firebase not initialized properly');
+        console.error('Firebase script not found');
     }
 }
 
@@ -240,19 +259,31 @@ async function handleLogin() {
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
 
+    if (!email || !password) {
+        showError('loginError', 'Please fill in all fields');
+        return;
+    }
+
     // Show loading state
     const submitBtn = document.querySelector('#loginFormElement button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = 'Logging in...';
     submitBtn.disabled = true;
 
-    const result = await loginUser(email, password);
+    try {
+        const result = await loginUser(email, password);
 
-    if (result.success) {
-        // Redirect will happen via onAuthStateChanged listener
-        submitBtn.textContent = 'Success! Redirecting...';
-    } else {
-        showError('loginError', result.message);
+        if (result.success) {
+            submitBtn.textContent = 'Success! Redirecting...';
+            // Force redirect immediately for better response time
+            window.location.href = 'index.html';
+        } else {
+            showError('loginError', result.message);
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+    } catch (err) {
+        showError('loginError', 'System error during login. Please try again.');
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
     }
@@ -263,6 +294,11 @@ async function handleRegister() {
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     const confirmPassword = document.getElementById('registerConfirmPassword').value;
+
+    if (!name || !email || !password || !confirmPassword) {
+        showError('registerError', 'Please fill in all fields');
+        return;
+    }
 
     // Validate passwords match
     if (password !== confirmPassword) {
@@ -282,13 +318,20 @@ async function handleRegister() {
     submitBtn.textContent = 'Creating account...';
     submitBtn.disabled = true;
 
-    const result = await registerUser(name, email, password);
+    try {
+        const result = await registerUser(name, email, password);
 
-    if (result.success) {
-        // Redirect will happen via onAuthStateChanged listener
-        submitBtn.textContent = 'Success! Redirecting...';
-    } else {
-        showError('registerError', result.message);
+        if (result.success) {
+            submitBtn.textContent = 'Success! Redirecting...';
+            // Force redirect immediately
+            window.location.href = 'index.html';
+        } else {
+            showError('registerError', result.message);
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+    } catch (err) {
+        showError('registerError', 'System error during registration. Please try again.');
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
     }

@@ -33,26 +33,71 @@ const STORAGE_KEY = 'habitgrid_data';
 // INITIALIZATION
 // ===================================
 
+let isAppInitialized = false;
+let isLoggingOut = false;
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Show local data immediately for faster perceived performance
+    showLocalDataImmediately();
+
+    // Check if we have a cached session to avoid flickering
+    const cachedSession = localStorage.getItem('habitgrid_session');
+
     // Wait for Firebase to initialize
     if (typeof firebase !== 'undefined' && firebase.auth) {
         firebase.auth().onAuthStateChanged(async (user) => {
+            if (isLoggingOut) return;
+
             if (user) {
-                // User is logged in, initialize app
+                // User is logged in
                 console.log('User authenticated:', user.email);
-                await initializeApp();
+                if (!isAppInitialized) {
+                    isAppInitialized = true;
+                    await initializeApp();
+                } else {
+                    displayUserInfo();
+                }
             } else {
-                // No user logged in, redirect to auth page
-                console.log('No user authenticated, redirecting...');
-                window.location.href = 'auth.html';
+                // No user logged in
+                console.log('No user authenticated');
+                if (!window.location.href.includes('auth.html') && !isLoggingOut) {
+                    window.location.href = 'auth.html';
+                }
             }
         });
     } else {
-        // Firebase not available, use localStorage fallback
-        console.warn('Firebase not initialized, using localStorage');
-        initializeApp();
+        // Fallback or retry
+        setTimeout(() => {
+            if (!isAppInitialized && (typeof firebase === 'undefined' || !firebase.auth)) {
+                console.warn('Firebase not initialized, using localStorage');
+                isAppInitialized = true;
+                initializeApp();
+            }
+        }, 2000);
     }
 });
+
+function showLocalDataImmediately() {
+    try {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            STATE.habits = data.habits || [];
+            STATE.habitLogs = data.habitLogs || {};
+            STATE.currentMonth = data.currentMonth ?? new Date().getMonth();
+            STATE.currentYear = data.currentYear ?? new Date().getFullYear();
+
+            // Render basic UI immediately
+            if (STATE.habits.length > 0) {
+                renderHabitGrid();
+                updateAnalytics();
+                updateMonthDisplay();
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load local preview data');
+    }
+}
 
 async function initializeApp() {
     await loadData();
@@ -62,6 +107,13 @@ async function initializeApp() {
     attachEventListeners();
     updateMonthDisplay();
     displayUserInfo();
+
+    // Hide loading overlay
+    const overlay = document.getElementById('app-loading-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        setTimeout(() => overlay.style.display = 'none', 500);
+    }
 
     // Migrate localStorage data to Firebase if needed
     const user = firebase.auth && firebase.auth().currentUser;
@@ -76,35 +128,42 @@ async function initializeApp() {
 
 async function loadData() {
     try {
-        // Check if user is logged in with Firebase
         const user = firebase.auth && firebase.auth().currentUser;
 
-        if (user && typeof loadHabitsFromFirebase === 'function') {
-            // Load from Firebase
-            const firebaseData = await loadHabitsFromFirebase(user.uid);
+        if (user && typeof listenToHabitChanges === 'function') {
+            // Setup real-time listener
+            listenToHabitChanges(user.uid, (firebaseData) => {
+                if (firebaseData) {
+                    STATE.habits = firebaseData.habits || [];
+                    STATE.habitLogs = firebaseData.habitLogs || {};
+                    STATE.currentMonth = firebaseData.currentMonth ?? STATE.currentMonth;
+                    STATE.currentYear = firebaseData.currentYear ?? STATE.currentYear;
 
-            if (firebaseData) {
-                STATE.habits = firebaseData.habits || [];
-                STATE.habitLogs = firebaseData.habitLogs || {};
-                STATE.currentMonth = firebaseData.currentMonth ?? new Date().getMonth();
-                STATE.currentYear = firebaseData.currentYear ?? new Date().getFullYear();
-                console.log('Data loaded from Firebase');
-                return;
-            }
+                    console.log('🔄 Data updated from Firebase (Real-time)');
+
+                    // Re-render only if app is already fully initialized
+                    if (isAppInitialized) {
+                        renderHabitGrid();
+                        updateAnalytics();
+                        updateMonthDisplay();
+                    }
+                }
+            });
+
+            // Do an initial fetch to avoid waiting for first snapshot if needed
+            // but usually onSnapshot fires immediately with current data
         }
 
-        // Fallback to localStorage
+        // Keep localStorage as a synchronous fallback for immediate display
         const savedData = localStorage.getItem(STORAGE_KEY);
-        if (savedData) {
+        if (savedData && STATE.habits.length === 0) {
             const data = JSON.parse(savedData);
             STATE.habits = data.habits || [];
             STATE.habitLogs = data.habitLogs || {};
-            STATE.currentMonth = data.currentMonth ?? new Date().getMonth();
-            STATE.currentYear = data.currentYear ?? new Date().getFullYear();
-            console.log('Data loaded from localStorage');
+            console.log('Initial data loaded from localStorage fallback');
         }
     } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('Error in loadData:', error);
     }
 }
 
@@ -861,16 +920,31 @@ async function displayUserInfo() {
     }
 }
 
-function handleLogout() {
-    const confirmed = confirm('Are you sure you want to logout?');
-    if (confirmed) {
-        // Use the global logout function from auth.js
-        if (typeof window.logout === 'function') {
-            window.logout();
-        } else {
-            // Fallback if auth.js is not loaded
+async function handleLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+        try {
+            isLoggingOut = true;
+
+            // Show loading state
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.textContent = 'Logging out...';
+
+            // 1. Clear session key FIRST to prevent auto-redirect loops
             localStorage.removeItem('habitgrid_session');
+
+            // 2. Sign out from Firebase
+            if (firebase.auth) {
+                await firebase.auth().signOut();
+            }
+
+            console.log('Logout successful, redirecting...');
+
+            // 3. Force redirect
             window.location.href = 'auth.html';
+        } catch (error) {
+            console.error('Logout error:', error);
+            isLoggingOut = false;
+            alert('Error logging out. Please try again.');
         }
     }
 }

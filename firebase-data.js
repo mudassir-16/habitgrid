@@ -87,6 +87,13 @@ async function migrateLocalStorageToFirebase(userId) {
         const localData = localStorage.getItem(STORAGE_KEY);
 
         if (localData) {
+            // Check if already migrated for this user
+            const migrationKey = `habitgrid_migrated_${userId}`;
+            if (localStorage.getItem(migrationKey)) {
+                console.log('Data already migrated for this user');
+                return true;
+            }
+
             const data = JSON.parse(localData);
             console.log('Migrating localStorage data to Firebase...');
 
@@ -94,8 +101,7 @@ async function migrateLocalStorageToFirebase(userId) {
 
             if (success) {
                 console.log('Migration successful!');
-                // Optionally remove from localStorage after successful migration
-                // localStorage.removeItem(STORAGE_KEY);
+                localStorage.setItem(migrationKey, 'true');
             }
 
             return success;
